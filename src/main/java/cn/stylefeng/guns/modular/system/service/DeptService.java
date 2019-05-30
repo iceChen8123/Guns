@@ -3,13 +3,14 @@ package cn.stylefeng.guns.modular.system.service;
 import cn.stylefeng.guns.core.common.exception.BizExceptionEnum;
 import cn.stylefeng.guns.core.common.node.TreeviewNode;
 import cn.stylefeng.guns.core.common.node.ZTreeNode;
+import cn.stylefeng.guns.core.common.page.LayuiPageFactory;
 import cn.stylefeng.guns.modular.system.entity.Dept;
 import cn.stylefeng.guns.modular.system.mapper.DeptMapper;
 import cn.stylefeng.roses.core.util.ToolUtil;
 import cn.stylefeng.roses.kernel.model.exception.ServiceException;
-import com.baomidou.mybatisplus.mapper.EntityWrapper;
-import com.baomidou.mybatisplus.mapper.Wrapper;
-import com.baomidou.mybatisplus.service.impl.ServiceImpl;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,14 +41,14 @@ public class DeptService extends ServiceImpl<DeptMapper, Dept> {
     @Transactional(rollbackFor = Exception.class)
     public void addDept(Dept dept) {
 
-        if (ToolUtil.isOneEmpty(dept, dept.getSimpleName(), dept.getFullName(), dept.getPid(), dept.getDescription())) {
+        if (ToolUtil.isOneEmpty(dept, dept.getSimpleName(), dept.getFullName(), dept.getPid())) {
             throw new ServiceException(BizExceptionEnum.REQUEST_NULL);
         }
 
         //完善pids,根据pid拿到pid的pids
         this.deptSetPids(dept);
 
-        this.insert(dept);
+        this.save(dept);
     }
 
     /**
@@ -80,14 +81,14 @@ public class DeptService extends ServiceImpl<DeptMapper, Dept> {
         Dept dept = deptMapper.selectById(deptId);
 
         //根据like查询删除所有级联的部门
-        Wrapper<Dept> wrapper = new EntityWrapper<>();
+        QueryWrapper<Dept> wrapper = new QueryWrapper<>();
         wrapper = wrapper.like("PIDS", "%[" + dept.getDeptId() + "]%");
         List<Dept> subDepts = deptMapper.selectList(wrapper);
         for (Dept temp : subDepts) {
-            this.deleteById(temp.getDeptId());
+            this.removeById(temp.getDeptId());
         }
 
-        this.deleteById(dept.getDeptId());
+        this.removeById(dept.getDeptId());
     }
 
     /**
@@ -116,8 +117,9 @@ public class DeptService extends ServiceImpl<DeptMapper, Dept> {
      * @author fengshuonan
      * @Date 2018/12/23 5:16 PM
      */
-    public List<Map<String, Object>> list(String condition, String deptId) {
-        return this.baseMapper.list(condition, deptId);
+    public Page<Map<String, Object>> list(String condition, String deptId) {
+        Page page = LayuiPageFactory.defaultPage();
+        return this.baseMapper.list(page, condition, deptId);
     }
 
     /**
@@ -132,7 +134,7 @@ public class DeptService extends ServiceImpl<DeptMapper, Dept> {
             dept.setPids("[0],");
         } else {
             Long pid = dept.getPid();
-            Dept temp = this.selectById(pid);
+            Dept temp = this.getById(pid);
             String pids = temp.getPids();
             dept.setPid(pid);
             dept.setPids(pids + "[" + pid + "],");

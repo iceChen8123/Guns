@@ -19,19 +19,24 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.stylefeng.guns.core.common.annotion.BussinessLog;
 import cn.stylefeng.guns.core.common.annotion.Permission;
 import cn.stylefeng.guns.core.common.constant.Const;
+import cn.stylefeng.guns.core.common.constant.dictmap.DeleteDict;
 import cn.stylefeng.guns.core.common.constant.dictmap.MenuDict;
 import cn.stylefeng.guns.core.common.constant.factory.ConstantFactory;
 import cn.stylefeng.guns.core.common.exception.BizExceptionEnum;
 import cn.stylefeng.guns.core.common.node.ZTreeNode;
+import cn.stylefeng.guns.core.common.page.LayuiPageFactory;
+import cn.stylefeng.guns.core.common.page.LayuiPageInfo;
 import cn.stylefeng.guns.core.log.LogObjectHolder;
 import cn.stylefeng.guns.modular.system.entity.Menu;
 import cn.stylefeng.guns.modular.system.model.MenuDto;
 import cn.stylefeng.guns.modular.system.service.MenuService;
-import cn.stylefeng.guns.modular.system.warpper.MenuWarpper;
+import cn.stylefeng.guns.modular.system.service.UserService;
+import cn.stylefeng.guns.modular.system.warpper.MenuWrapper;
 import cn.stylefeng.roses.core.base.controller.BaseController;
 import cn.stylefeng.roses.core.reqres.response.ResponseData;
 import cn.stylefeng.roses.core.util.ToolUtil;
 import cn.stylefeng.roses.kernel.model.exception.ServiceException;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -52,10 +57,13 @@ import java.util.Map;
 @RequestMapping("/menu")
 public class MenuController extends BaseController {
 
-    private static String PREFIX = "/system/menu/";
+    private static String PREFIX = "/modular/system/menu/";
 
     @Autowired
     private MenuService menuService;
+
+    @Autowired
+    private UserService userService;
 
     /**
      * 跳转到菜单列表列表页面
@@ -93,7 +101,7 @@ public class MenuController extends BaseController {
         }
 
         //获取菜单当前信息，记录日志用
-        Menu menu = this.menuService.selectById(menuId);
+        Menu menu = this.menuService.getById(menuId);
         LogObjectHolder.me().set(menu);
 
         return PREFIX + "menu_edit.html";
@@ -111,10 +119,11 @@ public class MenuController extends BaseController {
     @ResponseBody
     public ResponseData edit(MenuDto menu) {
 
-        //设置父级菜单编号
-        Menu resultMenu = this.menuService.menuSetPcode(menu);
+        //如果修改了编号，则该菜单的子菜单也要修改对应编号
+        this.menuService.updateMenu(menu);
 
-        this.menuService.updateById(resultMenu);
+        //刷新当前用户菜单
+        this.userService.refreshCurrentUser();
 
         return SUCCESS_TIP;
     }
@@ -131,8 +140,28 @@ public class MenuController extends BaseController {
     public Object list(@RequestParam(required = false) String menuName,
                        @RequestParam(required = false) String level,
                        @RequestParam(required = false) Long menuId) {
-        List<Map<String, Object>> menus = this.menuService.selectMenus(menuName, level, menuId);
-        return super.warpObject(new MenuWarpper(menus));
+        Page<Map<String, Object>> menus = this.menuService.selectMenus(menuName, level, menuId);
+        Page<Map<String, Object>> wrap = new MenuWrapper(menus).wrap();
+        return LayuiPageFactory.createPageInfo(wrap);
+    }
+
+    /**
+     * 获取菜单列表（s树形）
+     *
+     * @author fengshuonan
+     * @Date 2019年2月23日22:01:47
+     */
+    @Permission(Const.ADMIN_NAME)
+    @RequestMapping(value = "/listTree")
+    @ResponseBody
+    public Object listTree(@RequestParam(required = false) String menuName,
+                           @RequestParam(required = false) String level) {
+        List<Map<String, Object>> menus = this.menuService.selectMenuTree(menuName, level);
+        List<Map<String, Object>> menusWrap = new MenuWrapper(menus).wrap();
+
+        LayuiPageInfo result = new LayuiPageInfo();
+        result.setData(menusWrap);
+        return result;
     }
 
     /**
@@ -158,7 +187,7 @@ public class MenuController extends BaseController {
      */
     @Permission(Const.ADMIN_NAME)
     @RequestMapping(value = "/remove")
-    @BussinessLog(value = "删除菜单", key = "menuId", dict = MenuDict.class)
+    @BussinessLog(value = "删除菜单", key = "menuId", dict = DeleteDict.class)
     @ResponseBody
     public ResponseData remove(@RequestParam Long menuId) {
         if (ToolUtil.isEmpty(menuId)) {
@@ -185,7 +214,7 @@ public class MenuController extends BaseController {
         if (ToolUtil.isEmpty(menuId)) {
             throw new ServiceException(BizExceptionEnum.REQUEST_NULL);
         }
-        Menu menu = this.menuService.selectById(menuId);
+        Menu menu = this.menuService.getById(menuId);
         return ResponseData.success(menu);
     }
 
@@ -202,7 +231,7 @@ public class MenuController extends BaseController {
             throw new ServiceException(BizExceptionEnum.REQUEST_NULL);
         }
 
-        Menu menu = this.menuService.selectById(menuId);
+        Menu menu = this.menuService.getById(menuId);
 
         MenuDto menuDto = new MenuDto();
         BeanUtil.copyProperties(menu, menuDto);

@@ -22,17 +22,19 @@ import cn.stylefeng.guns.core.common.constant.dictmap.DeptDict;
 import cn.stylefeng.guns.core.common.constant.factory.ConstantFactory;
 import cn.stylefeng.guns.core.common.node.TreeviewNode;
 import cn.stylefeng.guns.core.common.node.ZTreeNode;
+import cn.stylefeng.guns.core.common.page.LayuiPageFactory;
 import cn.stylefeng.guns.core.log.LogObjectHolder;
 import cn.stylefeng.guns.modular.system.entity.Dept;
 import cn.stylefeng.guns.modular.system.model.DeptDto;
 import cn.stylefeng.guns.modular.system.service.DeptService;
-import cn.stylefeng.guns.modular.system.warpper.DeptTreeWarpper;
-import cn.stylefeng.guns.modular.system.warpper.DeptWarpper;
+import cn.stylefeng.guns.modular.system.warpper.DeptTreeWrapper;
+import cn.stylefeng.guns.modular.system.warpper.DeptWrapper;
 import cn.stylefeng.roses.core.base.controller.BaseController;
 import cn.stylefeng.roses.core.reqres.response.ResponseData;
 import cn.stylefeng.roses.core.treebuild.DefaultTreeBuildFactory;
 import cn.stylefeng.roses.core.util.ToolUtil;
 import cn.stylefeng.roses.kernel.model.exception.RequestEmptyException;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -53,7 +55,7 @@ import java.util.Map;
 @RequestMapping("/dept")
 public class DeptController extends BaseController {
 
-    private String PREFIX = "/system/dept/";
+    private String PREFIX = "/modular/system/dept/";
 
     @Autowired
     private DeptService deptService;
@@ -95,7 +97,7 @@ public class DeptController extends BaseController {
         }
 
         //缓存部门修改前详细信息
-        Dept dept = deptService.selectById(deptId);
+        Dept dept = deptService.getById(deptId);
         LogObjectHolder.me().set(dept);
 
         return PREFIX + "dept_edit.html";
@@ -132,7 +134,7 @@ public class DeptController extends BaseController {
         List<TreeviewNode> results = factory.doTreeBuild(treeviewNodes);
 
         //把子节点为空的设为null
-        DeptTreeWarpper.clearNull(results);
+        DeptTreeWrapper.clearNull(results);
 
         return results;
     }
@@ -163,8 +165,9 @@ public class DeptController extends BaseController {
     @ResponseBody
     public Object list(@RequestParam(value = "condition", required = false) String condition,
                        @RequestParam(value = "deptId", required = false) String deptId) {
-        List<Map<String, Object>> list = this.deptService.list(condition, deptId);
-        return super.warpObject(new DeptWarpper(list));
+        Page<Map<String, Object>> list = this.deptService.list(condition, deptId);
+        Page<Map<String, Object>> wrap = new DeptWrapper(list).wrap();
+        return LayuiPageFactory.createPageInfo(wrap);
     }
 
     /**
@@ -177,7 +180,7 @@ public class DeptController extends BaseController {
     @Permission
     @ResponseBody
     public Object detail(@PathVariable("deptId") Long deptId) {
-        Dept dept = deptService.selectById(deptId);
+        Dept dept = deptService.getById(deptId);
         DeptDto deptDto = new DeptDto();
         BeanUtil.copyProperties(dept, deptDto);
         deptDto.setPName(ConstantFactory.me().getDeptName(deptDto.getPid()));

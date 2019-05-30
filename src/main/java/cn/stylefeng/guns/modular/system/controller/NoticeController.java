@@ -17,9 +17,11 @@ package cn.stylefeng.guns.modular.system.controller;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.stylefeng.guns.core.common.annotion.BussinessLog;
+import cn.stylefeng.guns.core.common.constant.dictmap.DeleteDict;
 import cn.stylefeng.guns.core.common.constant.dictmap.NoticeMap;
 import cn.stylefeng.guns.core.common.constant.factory.ConstantFactory;
 import cn.stylefeng.guns.core.common.exception.BizExceptionEnum;
+import cn.stylefeng.guns.core.common.page.LayuiPageFactory;
 import cn.stylefeng.guns.core.log.LogObjectHolder;
 import cn.stylefeng.guns.core.shiro.ShiroKit;
 import cn.stylefeng.guns.modular.system.entity.Notice;
@@ -28,6 +30,7 @@ import cn.stylefeng.guns.modular.system.warpper.NoticeWrapper;
 import cn.stylefeng.roses.core.base.controller.BaseController;
 import cn.stylefeng.roses.core.util.ToolUtil;
 import cn.stylefeng.roses.kernel.model.exception.ServiceException;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -50,7 +53,7 @@ import java.util.Map;
 @RequestMapping("/notice")
 public class NoticeController extends BaseController {
 
-    private String PREFIX = "/system/notice/";
+    private String PREFIX = "/modular/system/notice/";
 
     @Autowired
     private NoticeService noticeService;
@@ -85,7 +88,7 @@ public class NoticeController extends BaseController {
      */
     @RequestMapping("/notice_update/{noticeId}")
     public String noticeUpdate(@PathVariable Long noticeId, Model model) {
-        Notice notice = this.noticeService.selectById(noticeId);
+        Notice notice = this.noticeService.getById(noticeId);
         model.addAllAttributes(BeanUtil.beanToMap(notice));
         LogObjectHolder.me().set(notice);
         return PREFIX + "notice_edit.html";
@@ -99,7 +102,7 @@ public class NoticeController extends BaseController {
      */
     @RequestMapping("/hello")
     public String hello() {
-        List<Map<String, Object>> notices = noticeService.list(null);
+        List<Notice> notices = noticeService.list();
         super.setAttr("noticeList", notices);
         return PREFIX + "notice_index.html";
     }
@@ -113,8 +116,9 @@ public class NoticeController extends BaseController {
     @RequestMapping(value = "/list")
     @ResponseBody
     public Object list(String condition) {
-        List<Map<String, Object>> list = this.noticeService.list(condition);
-        return super.warpObject(new NoticeWrapper(list));
+        Page<Map<String, Object>> list = this.noticeService.list(condition);
+        Page<Map<String, Object>> wrap = new NoticeWrapper(list).wrap();
+        return LayuiPageFactory.createPageInfo(wrap);
     }
 
     /**
@@ -132,7 +136,7 @@ public class NoticeController extends BaseController {
         }
         notice.setCreateUser(ShiroKit.getUserNotNull().getId());
         notice.setCreateTime(new Date());
-        this.noticeService.insert(notice);
+        this.noticeService.save(notice);
         return SUCCESS_TIP;
     }
 
@@ -144,13 +148,13 @@ public class NoticeController extends BaseController {
      */
     @RequestMapping(value = "/delete")
     @ResponseBody
-    @BussinessLog(value = "删除通知", key = "noticeId", dict = NoticeMap.class)
+    @BussinessLog(value = "删除通知", key = "noticeId", dict = DeleteDict.class)
     public Object delete(@RequestParam Long noticeId) {
 
         //缓存通知名称
         LogObjectHolder.me().set(ConstantFactory.me().getNoticeTitle(noticeId));
 
-        this.noticeService.deleteById(noticeId);
+        this.noticeService.removeById(noticeId);
 
         return SUCCESS_TIP;
     }
@@ -168,7 +172,7 @@ public class NoticeController extends BaseController {
         if (ToolUtil.isOneEmpty(notice, notice.getNoticeId(), notice.getTitle(), notice.getContent())) {
             throw new ServiceException(BizExceptionEnum.REQUEST_NULL);
         }
-        Notice old = this.noticeService.selectById(notice.getNoticeId());
+        Notice old = this.noticeService.getById(notice.getNoticeId());
         old.setTitle(notice.getTitle());
         old.setContent(notice.getContent());
         this.noticeService.updateById(old);

@@ -19,15 +19,14 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.stylefeng.guns.core.common.annotion.BussinessLog;
 import cn.stylefeng.guns.core.common.annotion.Permission;
 import cn.stylefeng.guns.core.common.constant.Const;
-import cn.stylefeng.guns.core.common.constant.factory.PageFactory;
 import cn.stylefeng.guns.core.common.constant.state.BizLogType;
-import cn.stylefeng.guns.core.common.page.PageInfoBT;
+import cn.stylefeng.guns.core.common.page.LayuiPageFactory;
 import cn.stylefeng.guns.modular.system.entity.OperationLog;
 import cn.stylefeng.guns.modular.system.service.OperationLogService;
-import cn.stylefeng.guns.modular.system.warpper.LogWarpper;
+import cn.stylefeng.guns.modular.system.warpper.LogWrapper;
 import cn.stylefeng.roses.core.base.controller.BaseController;
-import com.baomidou.mybatisplus.mapper.SqlRunner;
-import com.baomidou.mybatisplus.plugins.Page;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.toolkit.SqlRunner;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -48,7 +47,7 @@ import java.util.Map;
 @RequestMapping("/log")
 public class LogController extends BaseController {
 
-    private static String PREFIX = "/system/log/";
+    private static String PREFIX = "/modular/system/log/";
 
     @Autowired
     private OperationLogService operationLogService;
@@ -79,15 +78,14 @@ public class LogController extends BaseController {
                        @RequestParam(required = false) Integer logType) {
 
         //获取分页参数
-        Page<OperationLog> page = new PageFactory<OperationLog>().defaultPage();
+        Page page = LayuiPageFactory.defaultPage();
 
         //根据条件查询操作日志
-        List<Map<String, Object>> result = operationLogService.getOperationLogs(page, beginTime, endTime, logName,
-                BizLogType.valueOf(logType), page.getOrderByField(), page.isAsc());
+        List<Map<String, Object>> result = operationLogService.getOperationLogs(page, beginTime, endTime, logName, BizLogType.valueOf(logType));
 
-        page.setRecords(new LogWarpper(result).wrap());
+        page.setRecords(new LogWrapper(result).wrap());
 
-        return new PageInfoBT<>(page);
+        return LayuiPageFactory.createPageInfo(page);
     }
 
     /**
@@ -100,9 +98,9 @@ public class LogController extends BaseController {
     @Permission(Const.ADMIN_NAME)
     @ResponseBody
     public Object detail(@PathVariable Long id) {
-        OperationLog operationLog = operationLogService.selectById(id);
+        OperationLog operationLog = operationLogService.getById(id);
         Map<String, Object> stringObjectMap = BeanUtil.beanToMap(operationLog);
-        return super.warpObject(new LogWarpper(stringObjectMap));
+        return super.warpObject(new LogWrapper(stringObjectMap));
     }
 
     /**

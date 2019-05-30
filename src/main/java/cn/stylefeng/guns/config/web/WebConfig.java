@@ -42,7 +42,6 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import java.util.Arrays;
 import java.util.Properties;
 
 import static cn.stylefeng.guns.core.common.constant.Const.NONE_PERMISSION_RES;
@@ -69,10 +68,10 @@ public class WebConfig implements WebMvcConfigurer {
             //swagger
             registry.addResourceHandler("swagger-ui.html").addResourceLocations("classpath:/META-INF/resources/");
             registry.addResourceHandler("/webjars/**").addResourceLocations("classpath:/META-INF/resources/webjars/");
-
-            //本应用
-            registry.addResourceHandler("/assets/**").addResourceLocations("classpath:/assets/");
         }
+
+        //本应用
+        registry.addResourceHandler("/assets/**").addResourceLocations("classpath:/assets/");
     }
 
     /**
@@ -162,7 +161,8 @@ public class WebConfig implements WebMvcConfigurer {
     @Bean
     public FilterRegistrationBean xssFilterRegistration() {
         XssFilter xssFilter = new XssFilter();
-        xssFilter.setUrlExclusion(Arrays.asList("/notice/update", "/notice/add"));
+        // 这里可以加不被xss过滤的接口
+        // xssFilter.setUrlExclusion(Arrays.asList("/notice/update", "/notice/add"));
         FilterRegistrationBean registration = new FilterRegistrationBean(xssFilter);
         registration.addUrlPatterns("/*");
         return registration;

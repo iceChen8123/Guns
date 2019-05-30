@@ -19,21 +19,24 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.stylefeng.guns.core.common.annotion.BussinessLog;
 import cn.stylefeng.guns.core.common.annotion.Permission;
 import cn.stylefeng.guns.core.common.constant.Const;
+import cn.stylefeng.guns.core.common.constant.dictmap.DeleteDict;
 import cn.stylefeng.guns.core.common.constant.dictmap.RoleDict;
 import cn.stylefeng.guns.core.common.constant.factory.ConstantFactory;
 import cn.stylefeng.guns.core.common.exception.BizExceptionEnum;
 import cn.stylefeng.guns.core.common.node.ZTreeNode;
+import cn.stylefeng.guns.core.common.page.LayuiPageFactory;
 import cn.stylefeng.guns.core.log.LogObjectHolder;
 import cn.stylefeng.guns.modular.system.entity.Role;
 import cn.stylefeng.guns.modular.system.entity.User;
 import cn.stylefeng.guns.modular.system.model.RoleDto;
 import cn.stylefeng.guns.modular.system.service.RoleService;
 import cn.stylefeng.guns.modular.system.service.UserService;
-import cn.stylefeng.guns.modular.system.warpper.RoleWarpper;
+import cn.stylefeng.guns.modular.system.warpper.RoleWrapper;
 import cn.stylefeng.roses.core.base.controller.BaseController;
 import cn.stylefeng.roses.core.reqres.response.ResponseData;
 import cn.stylefeng.roses.core.util.ToolUtil;
 import cn.stylefeng.roses.kernel.model.exception.ServiceException;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -55,7 +58,7 @@ import java.util.Map;
 @RequestMapping("/role")
 public class RoleController extends BaseController {
 
-    private static String PREFIX = "/system/role";
+    private static String PREFIX = "/modular/system/role";
 
     @Autowired
     private UserService userService;
@@ -97,7 +100,7 @@ public class RoleController extends BaseController {
         if (ToolUtil.isEmpty(roleId)) {
             throw new ServiceException(BizExceptionEnum.REQUEST_NULL);
         }
-        Role role = this.roleService.selectById(roleId);
+        Role role = this.roleService.getById(roleId);
         LogObjectHolder.me().set(role);
         return PREFIX + "/role_edit.html";
     }
@@ -128,8 +131,9 @@ public class RoleController extends BaseController {
     @RequestMapping(value = "/list")
     @ResponseBody
     public Object list(@RequestParam(value = "roleName", required = false) String roleName) {
-        List<Map<String, Object>> roles = this.roleService.selectRoles(roleName);
-        return super.warpObject(new RoleWarpper(roles));
+        Page<Map<String, Object>> roles = this.roleService.selectRoles(roleName);
+        Page<Map<String, Object>> wrap = new RoleWrapper(roles).wrap();
+        return LayuiPageFactory.createPageInfo(wrap);
     }
 
     /**
@@ -169,10 +173,14 @@ public class RoleController extends BaseController {
      * @Date 2018/12/23 6:31 PM
      */
     @RequestMapping(value = "/remove")
-    @BussinessLog(value = "删除角色", key = "roleId", dict = RoleDict.class)
+    @BussinessLog(value = "删除角色", key = "roleId", dict = DeleteDict.class)
     @Permission(Const.ADMIN_NAME)
     @ResponseBody
     public ResponseData remove(@RequestParam Long roleId) {
+
+        //缓存被删除的部门名称
+        LogObjectHolder.me().set(ConstantFactory.me().getDeptName(roleId));
+
         this.roleService.delRoleById(roleId);
         return SUCCESS_TIP;
     }
@@ -189,7 +197,7 @@ public class RoleController extends BaseController {
         if (ToolUtil.isEmpty(roleId)) {
             throw new ServiceException(BizExceptionEnum.REQUEST_NULL);
         }
-        Role role = this.roleService.selectById(roleId);
+        Role role = this.roleService.getById(roleId);
         Map<String, Object> roleMap = BeanUtil.beanToMap(role);
 
         Long pid = role.getPid();
@@ -240,7 +248,7 @@ public class RoleController extends BaseController {
     @RequestMapping(value = "/roleTreeListByUserId/{userId}")
     @ResponseBody
     public List<ZTreeNode> roleTreeListByUserId(@PathVariable Long userId) {
-        User theUser = this.userService.selectById(userId);
+        User theUser = this.userService.getById(userId);
         String roleId = theUser.getRoleId();
         if (ToolUtil.isEmpty(roleId)) {
             return this.roleService.roleTreeList();

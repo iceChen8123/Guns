@@ -15,7 +15,6 @@
  */
 package cn.stylefeng.guns;
 
-import cn.stylefeng.guns.generator.config.GeneratorAutoConfiguration;
 import cn.stylefeng.roses.core.config.WebAutoConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,13 +27,13 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * @author stylefeng
  * @Date 2017/5/21 12:06
  */
-@SpringBootApplication(exclude = {WebAutoConfiguration.class, GeneratorAutoConfiguration.class})
+@SpringBootApplication(exclude = {WebAutoConfiguration.class})
 public class GunsApplication {
 
     private final static Logger logger = LoggerFactory.getLogger(GunsApplication.class);
 
     public static void main(String[] args) {
         SpringApplication.run(GunsApplication.class, args);
-        logger.info("GunsApplication is success!");
+        logger.info(GunsApplication.class.getSimpleName() + " is success!");
     }
 }

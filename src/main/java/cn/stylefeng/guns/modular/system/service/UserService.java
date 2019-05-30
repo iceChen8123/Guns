@@ -1,11 +1,14 @@
 package cn.stylefeng.guns.modular.system.service;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.stylefeng.guns.core.common.constant.Const;
 import cn.stylefeng.guns.core.common.constant.state.ManagerStatus;
 import cn.stylefeng.guns.core.common.exception.BizExceptionEnum;
 import cn.stylefeng.guns.core.common.node.MenuNode;
+import cn.stylefeng.guns.core.common.page.LayuiPageFactory;
 import cn.stylefeng.guns.core.shiro.ShiroKit;
 import cn.stylefeng.guns.core.shiro.ShiroUser;
+import cn.stylefeng.guns.core.shiro.service.UserAuthService;
 import cn.stylefeng.guns.core.util.ApiMenuFilter;
 import cn.stylefeng.guns.modular.system.entity.User;
 import cn.stylefeng.guns.modular.system.factory.UserFactory;
@@ -13,7 +16,8 @@ import cn.stylefeng.guns.modular.system.mapper.UserMapper;
 import cn.stylefeng.guns.modular.system.model.UserDto;
 import cn.stylefeng.roses.core.datascope.DataScope;
 import cn.stylefeng.roses.kernel.model.exception.ServiceException;
-import com.baomidou.mybatisplus.service.impl.ServiceImpl;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -35,13 +39,16 @@ public class UserService extends ServiceImpl<UserMapper, User> {
     @Autowired
     private MenuService menuService;
 
+    @Autowired
+    private UserAuthService userAuthService;
+
     /**
      * 添加用戶
      *
      * @author fengshuonan
      * @Date 2018/12/24 22:51
      */
-    public void addUser(UserDto user){
+    public void addUser(UserDto user) {
 
         // 判断账号是否重复
         User theUser = this.getByAccount(user.getAccount());
@@ -53,7 +60,7 @@ public class UserService extends ServiceImpl<UserMapper, User> {
         String salt = ShiroKit.getRandomSalt(5);
         String password = ShiroKit.md5(user.getPassword(), salt);
 
-        this.insert(UserFactory.createUser(user, password, salt));
+        this.save(UserFactory.createUser(user, password, salt));
     }
 
     /**
@@ -62,8 +69,8 @@ public class UserService extends ServiceImpl<UserMapper, User> {
      * @author fengshuonan
      * @Date 2018/12/24 22:53
      */
-    public void editUser(UserDto user){
-        User oldUser = this.selectById(user.getUserId());
+    public void editUser(UserDto user) {
+        User oldUser = this.getById(user.getUserId());
 
         if (ShiroKit.hasRole(Const.ADMIN_NAME)) {
             this.updateById(UserFactory.editUser(user, oldUser));
@@ -84,7 +91,7 @@ public class UserService extends ServiceImpl<UserMapper, User> {
      * @author fengshuonan
      * @Date 2018/12/24 22:54
      */
-    public void deleteUser(Long userId){
+    public void deleteUser(Long userId) {
 
         //不能删除超级管理员
         if (userId.equals(Const.ADMIN_ID)) {
@@ -110,9 +117,9 @@ public class UserService extends ServiceImpl<UserMapper, User> {
      * @author fengshuonan
      * @Date 2018/12/24 22:45
      */
-    public void changePwd(String oldPassword,String newPassword) {
+    public void changePwd(String oldPassword, String newPassword) {
         Long userId = ShiroKit.getUserNotNull().getId();
-        User user = this.selectById(userId);
+        User user = this.getById(userId);
 
         String oldMd5 = ShiroKit.md5(oldPassword, user.getSalt());
 
@@ -131,8 +138,9 @@ public class UserService extends ServiceImpl<UserMapper, User> {
      * @author fengshuonan
      * @Date 2018/12/24 22:45
      */
-    public List<Map<String, Object>> selectUsers(DataScope dataScope, String name, String beginTime, String endTime, Long deptId) {
-        return this.baseMapper.selectUsers(dataScope, name, beginTime, endTime, deptId);
+    public Page<Map<String, Object>> selectUsers(DataScope dataScope, String name, String beginTime, String endTime, Long deptId) {
+        Page page = LayuiPageFactory.defaultPage();
+        return this.baseMapper.selectUsers(page, dataScope, name, beginTime, endTime, deptId);
     }
 
     /**
@@ -183,7 +191,7 @@ public class UserService extends ServiceImpl<UserMapper, User> {
             return;
         }
         List<Long> deptDataScope = ShiroKit.getDeptDataScope();
-        User user = this.selectById(userId);
+        User user = this.getById(userId);
         Long deptId = user.getDeptId();
         if (deptDataScope.contains(deptId)) {
             return;
@@ -191,6 +199,21 @@ public class UserService extends ServiceImpl<UserMapper, User> {
             throw new ServiceException(BizExceptionEnum.NO_PERMITION);
         }
 
+    }
+
+    /**
+     * 刷新当前登录用户的信息
+     *
+     * @author fengshuonan
+     * @Date 2019/1/19 5:59 PM
+     */
+    public void refreshCurrentUser() {
+        ShiroUser user = ShiroKit.getUserNotNull();
+        Long id = user.getId();
+        User currentUser = this.getById(id);
+        ShiroUser shiroUser = userAuthService.shiroUser(currentUser);
+        ShiroUser lastUser = ShiroKit.getUser();
+        BeanUtil.copyProperties(shiroUser, lastUser);
     }
 
 }
